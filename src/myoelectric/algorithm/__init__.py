@@ -1,0 +1,110 @@
+"""Algorithm layer: filters, onset detectors, and feature functions.
+
+Functions in this layer take arrays and value objects and return arrays and value
+objects. They perform no plotting, no file access, and no random number generation, so
+every result is a deterministic function of its arguments.
+"""
+
+from myoelectric.algorithm.autoregressive import ARModel, whiten, yule_walker
+from myoelectric.algorithm.envelope import (
+    EnvelopeEstimator,
+    ExponentialEnvelope,
+    LatencyMeasurement,
+    LowPassEnvelope,
+    MovingAverageEnvelope,
+    MovingRmsEnvelope,
+    measure_latency,
+)
+from myoelectric.algorithm.features_freq import (
+    FrequencyDomainFeatures,
+    PowerSpectrum,
+    frequency_domain_features,
+    mean_frequency,
+    median_frequency,
+    spectral_moment,
+    welch_spectrum,
+)
+from myoelectric.algorithm.features_time import (
+    TimeDomainFeatures,
+    autoregressive_coefficients,
+    integrated_emg,
+    mean_absolute_value,
+    mean_absolute_value_slope,
+    root_mean_square,
+    slope_sign_changes,
+    time_domain_features,
+    variance,
+    waveform_length,
+    willison_amplitude,
+    zero_crossings,
+)
+from myoelectric.algorithm.filters import (
+    FilterDesign,
+    FilterMode,
+    apply_causal,
+    apply_filter,
+    apply_zero_phase,
+    cascade,
+    design_bandpass,
+    design_highpass,
+    design_lowpass,
+    design_powerline_notch,
+    group_delay_samples,
+    phase_delay_samples,
+)
+from myoelectric.algorithm.onset import (
+    BonatoDetector,
+    EnvelopeThresholdDetector,
+    HodgesBuiDetector,
+    OnsetDetector,
+    OnsetResult,
+)
+
+__all__ = [
+    "ARModel",
+    "BonatoDetector",
+    "EnvelopeEstimator",
+    "EnvelopeThresholdDetector",
+    "ExponentialEnvelope",
+    "FilterDesign",
+    "FilterMode",
+    "FrequencyDomainFeatures",
+    "HodgesBuiDetector",
+    "LatencyMeasurement",
+    "LowPassEnvelope",
+    "MovingAverageEnvelope",
+    "MovingRmsEnvelope",
+    "OnsetDetector",
+    "OnsetResult",
+    "PowerSpectrum",
+    "TimeDomainFeatures",
+    "apply_causal",
+    "apply_filter",
+    "apply_zero_phase",
+    "autoregressive_coefficients",
+    "cascade",
+    "design_bandpass",
+    "design_highpass",
+    "design_lowpass",
+    "design_powerline_notch",
+    "frequency_domain_features",
+    "group_delay_samples",
+    "integrated_emg",
+    "mean_absolute_value",
+    "mean_absolute_value_slope",
+    "mean_frequency",
+    "measure_latency",
+    "median_frequency",
+    "phase_delay_samples",
+    "root_mean_square",
+    "slope_sign_changes",
+    "spectral_moment",
+    "time_domain_features",
+    "variance",
+    "waveform_length",
+    "welch_spectrum",
+    "whiten",
+    "willison_amplitude",
+    "yule_walker",
+    "zero_crossings",
+]

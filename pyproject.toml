@@ -1,0 +1,47 @@
+[project]
+name = "myoelectric-signal-processing"
+version = "0.1.0"
+description = "Filtering, onset detection, and a time and frequency domain feature library for myoelectric signals."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "Emre Yilmaz" }]
+keywords = ["emg", "signal-processing", "feature-extraction", "biosignal", "python"]
+dependencies = ["numpy>=2.0", "scipy>=1.14", "matplotlib>=3.9"]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "ruff>=0.8", "mypy>=1.13"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "ruff>=0.8", "mypy>=1.13"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/myoelectric"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: excluded from the default run"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/myoelectric"]
+
+# scipy and matplotlib do not ship type information that mypy can consume in strict
+# mode. Their public surface used here is small and every value crossing the boundary
+# is converted explicitly with numpy.asarray or float, so the untyped import is
+# contained rather than propagated.
+[[tool.mypy.overrides]]
+module = ["matplotlib.*", "scipy.*"]
+ignore_missing_imports = true
