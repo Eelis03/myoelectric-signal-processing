@@ -29,8 +29,17 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
+      # The coverage floor is two points below the figure measured locally, so that
+      # ordinary movement does not break the build while a real regression does. The
+      # integration tier runs the example scripts as subprocesses, which contribute no
+      # coverage, so this figure is what the unit and property tiers reach on their own.
+      #
+      # The tracked figures under docs/figures are checked for existence and total size
+      # by the test suite and are deliberately not compared byte for byte: matplotlib
+      # output is not byte reproducible across platforms or across its own releases, so
+      # such a comparison would fail on a runner where nothing had changed.
       - name: Run tests
-        run: uv run pytest -q
+        run: uv run pytest -q --cov=src/myoelectric --cov-report=term-missing --cov-fail-under=92
 
       - name: Lint
         run: uv run ruff check .

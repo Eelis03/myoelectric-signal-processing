@@ -11,8 +11,15 @@ from pathlib import Path
 
 DEFAULT_OUTPUT = Path("outputs")
 
+# The tracked figures live at a fixed place in the repository, so the script that
+# regenerates them defaults to an absolute path derived from its own location rather
+# than to a path relative to the working directory. Regenerating the figures must not
+# depend on which directory the command was typed in.
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+TRACKED_FIGURES = REPOSITORY_ROOT / "docs" / "figures"
 
-def parse_arguments(description: str) -> argparse.Namespace:
+
+def parse_arguments(description: str, default_outdir: Path = DEFAULT_OUTPUT) -> argparse.Namespace:
     """Parse the two arguments that every example script accepts."""
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
@@ -23,8 +30,8 @@ def parse_arguments(description: str) -> argparse.Namespace:
     parser.add_argument(
         "--outdir",
         type=Path,
-        default=DEFAULT_OUTPUT,
-        help="directory for figures, created if absent",
+        default=default_outdir,
+        help=f"directory for figures, created if absent (default {default_outdir})",
     )
     parser.add_argument(
         "--no-figures",

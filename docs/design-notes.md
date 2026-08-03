@@ -168,6 +168,35 @@ the variance of the first difference of a resting segment, which is the scale on
 alone produces turning points and which scales as the square of the gain, so the scale
 invariance property is preserved.
 
+### Reducing a frequency dependent group delay to one number
+
+A delay budget adds numbers up, and a filter does not have one delay. The group delay of the
+band pass runs from 1.18 ms at 250 Hz to 31.68 ms at its 20 Hz corner, and the group delay of
+a quality factor 30 notch approaches 90 ms one Hertz from its centre. Any single figure charged
+to a budget is therefore the output of a rule, and the rule has to be stated with the figure.
+
+Two rules are implemented and `analysis/delay_budget.py` records which one produced a stage.
+
+The default is the group delay averaged over the band and weighted by the squared magnitude
+response of the design, under the stated assumption that the input carries equal power at every
+frequency in the band. This is the delay that the envelope of a broadband signal experiences,
+and the envelope is the quantity a proportional controller acts on. It is the correct default
+for the specific reason that it treats a notch properly: at a transmission zero the filter is
+not delaying the signal, it is removing it, and a weight proportional to surviving power gives
+that frequency the weight it has earned.
+
+The alternative is the largest group delay anywhere in the pass band, where the pass band is
+the part of the requested band within a stated number of decibels of the design's maximum gain
+in it. This is a strict bound. It is also a very conservative one whenever a notch is present,
+because group delay peaks exactly where a magnitude response falls fastest. On the band pass
+and notch chain used here the two rules give 4.16 ms and 94.14 ms, and the entire difference
+belongs to a component within about one Hertz of the mains line.
+
+Neither rule was chosen alone. Reporting only the weighted mean would hide that a bound exists;
+reporting only the bound would declare a chain infeasible on the strength of a frequency the
+chain exists to destroy. Both are computed by the same function under a `rule` argument, and
+both appear in the README.
+
 ### Fatigue as a validation rather than a finding
 
 The downward shift of median frequency during a sustained contraction is one of the most
@@ -240,7 +269,65 @@ pins aggregate rates with a tolerance derived from the binomial standard error, 
 on fixed deterministic inputs, closed form filter responses, and the verdicts on one seeded
 record where the crossings are not marginal.
 
+## Limitations closed
+
+### The delay budget is now enforced rather than quoted
+
+This section previously listed, as limitation 8, that the library reported the delay each stage
+imposes and compared those figures against the range Farrell and Weir (2007) report, while
+nothing in the code prevented a caller from assembling a chain whose total delay exceeded that
+budget. That is now closed.
+
+What was added. `src/myoelectric/analysis/delay_budget.py` turns each stage into a `DelayStage`
+carrying a delay and the basis on which it was computed, sums them into a `DelayBudget`, and
+compares the total against a limit whose default is the 125 ms upper bound of the Farrell and
+Weir range. `enforce` raises `DelayBudgetExceededError` naming the largest contributor. Three
+constructors cover the stages this library implements: `filter_stage` from a `FilterDesign` and
+a band, `detector_stage` from an `OnsetDetector`, and `envelope_stage` from an
+`EnvelopeEstimator`. `fixed_stage` covers everything else, so a caller can enter a classifier
+and an actuator rather than leaving the budget quietly short.
+
+What it cost. Three things, none of them free.
+
+The first is that a filter has no single group delay, so charging one to a budget needs a rule.
+That is the subject of the section above, and it forced two rules rather than one, both
+implemented, both reported. A budget assembled without noticing which rule produced its filter
+stage is still a number without a meaning; the rule is recorded on the stage so that it cannot
+be read without its conditions.
+
+The second is that zero phase filtering had to be refused outright rather than charged zero.
+Its group delay genuinely is zero, so an implementation that simply summed group delays would
+accept it and produce a total that no controller can achieve. `filter_stage` raises on a
+`zero_phase` mode instead. The cost of that decision is that the same function cannot be used
+to describe the offline analysis path, which is the correct outcome and still a restriction.
+
+The third is that the enforced total covers only what the caller enters into it. The check is
+a sum, not a discovery procedure, and it cannot know about a stage nobody mentioned.
+
+What it changed. On the chain the README documents, conditioning, onset decision and amplitude
+estimation consume 78.91 ms of the 125 ms bound, leaving 46.09 ms for the classifier and the
+actuator. Substituting the steadiest amplitude estimator in the library, on the reasonable
+grounds that 7.0 per cent plateau ripple beats 14.6 per cent, takes the total to 141.70 ms and
+the check fails. That substitution is exactly the kind a reader of the amplitude table would
+make, and before this module nothing in the library would have objected to it.
+
+What remains. The budget is a design time check on a chain that has been described to it. It
+does not measure the delay of a running implementation, it does not account for the cost of the
+feature window a classifier would need, which is 250 ms for the 0.25 s window used in the
+feature report and larger than the whole budget on its own, and it has no view of the
+computational time any stage takes on real hardware. The seven limitations below are unchanged.
+
 ## Known limitations
+
+Limitation 8 of this list, that the delay budget was quoted rather than enforced, has been
+removed and is documented above.
+
+The first entry is structural rather than an oversight. Every number this project reports is
+computed on synthetic signals, and closing that would require downloading and evaluating on a
+public dataset. This project takes no network access at runtime and commits no data, so the
+synthetic data limitation cannot be closed from inside it; what it can do, and does, is keep
+the substitution path short and documented, which is the subject of the first section of these
+notes.
 
 1. **Single channel.** The generator produces one channel. Crosstalk between neighbouring
    muscles, which is one of the main practical difficulties in myoelectric control, cannot be
@@ -283,8 +370,3 @@ record where the crossings are not marginal.
 7. **No electrode or amplifier model.** Sampling is ideal, quantisation is not represented,
    there is no anti alias filter, and there is no amplifier saturation or direct current
    offset. A record from a real front end can fail in ways nothing here would predict.
-
-8. **The delay budget is quoted, not enforced.** The library reports the delay each stage
-   imposes, and the README compares those figures against the range Farrell and Weir (2007)
-   report. Nothing in the code prevents a caller from assembling a chain whose total delay
-   exceeds that budget.

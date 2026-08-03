@@ -6,96 +6,19 @@ Filtering, onset detection, and a time and frequency domain feature library for 
 [![Python](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-## Overview
+![Median frequency falling from 95.8 Hz to 69.9 Hz over a 60 second sustained contraction, with the fitted least squares trend line, while the amplitude of the same signal does not fall with it](docs/figures/fatigue-median-frequency.png)
 
-This library implements the signal processing that sits between a surface electromyography
-amplifier and a prosthesis controller: filter design and application, onset detection behind
-a common protocol, a time and frequency domain feature library, and amplitude estimation for
-proportional control. It is aimed at anyone building or evaluating a myoelectric control
-chain who needs the delay, the false positive rate, and the timing bias of each stage stated
-rather than assumed.
+That is the spectral compression of muscle fatigue, recovered from a synthetic contraction by
+the median frequency implementation in this library. It is the most reliably reproduced effect
+in surface electromyography, which is why it is used here as a test of the implementation
+rather than presented as a finding: a median frequency that fails to fall is wrong.
 
-**Every result reported here is computed on synthetic signals.** No dataset is downloaded
-and none is committed. The signals come from the documented generator in
-`src/myoelectric/pipeline/generation.py`: a motor unit pool with size ordered recruitment
-and rate coding after Fuglevand, Winter and Patla (1993), Hermite Rodriguez action
-potentials after Lo Conte, Merletti and Sandri (1994), additive wideband noise at a
-specified signal to noise ratio, power line interference with harmonics, and low frequency
-movement artefact. What this establishes and what it does not is set out in
-[docs/design-notes.md](docs/design-notes.md). In short, synthetic signals establish that the
-mathematics is correct and that each method behaves as its source describes, and they do not
-establish how any of it performs on a human arm.
-
-For a real evaluation, three public datasets are suitable and none is redistributed here:
-Ninapro (Atzori et al., 2014, <https://ninapro.hevs.ch>), putEMG (Kaczmarek et al., 2019,
-<https://biolab.put.poznan.pl/putemg-dataset/>), and the PhysioNet examples of
-electromyograms (Goldberger et al., 2000, <https://physionet.org/content/emgdb/1.0.0/>).
-`src/myoelectric/pipeline/loaders.py` provides the loader interface, in the two formats a
-dataset export normally takes, so a real recording can be dropped in without changing any
-algorithm code.
-
-## Problem
-
-A myoelectric prosthesis has to decide, from a noisy voltage measured at the skin, when the
-user intended to move and how hard. Four things stand between the electrode and that
-decision.
-
-1. The recording carries contaminations that overlap the signal in ways a single filter
-   cannot address. Movement artefact sits below the signal band, mains interference sits
-   inside it as narrow lines, and instrumentation noise covers all of it.
-2. The instant the muscle became active has to be located. Detectors for this differ in how
-   often they find a real onset, how often they declare one that is not there, and by how
-   much they are systematically late or early. A detection rate reported without the
-   matching false positive rate carries no information, since a detector that fires
-   constantly reaches a detection rate of one.
-3. Amplitude and spectral features have to be computed with definitions exact enough to be
-   reproduced, and with an estimator whose resolution is stated.
-4. Every stage costs delay, and the delay budget of a usable prosthesis is finite. Farrell
-   and Weir (2007) measured that budget and reported an upper bound near 100 ms to 125 ms
-   from muscle contraction to device response, covering everything: filtering, onset
-   decision, classification, and the actuator.
-
-The last point is why this library keeps causal and non causal processing separate
-throughout. Zero phase filtering, which runs a filter forwards and then backwards, has
-exactly zero group delay and is the right choice for offline analysis. It is also non causal:
-producing the output at one sample requires samples that have not been acquired. A latency or
-a timing bias measured under zero phase filtering understates the value a real controller
-would experience.
-
-## Approach
-
-Filtering. Three designs, each built from second order sections, each with a stated rationale
-and a group delay the library computes rather than quotes. A fourth order Butterworth band
-pass from 20 Hz to 450 Hz covers the surface signal band, with the lower corner following the
-movement artefact measurements of De Luca et al. (2010). A cascade of second order notches
-removes the mains fundamental and its harmonics, which lie inside the pass band and cannot be
-reached by moving the corners. A separate fourth order Butterworth high pass at 20 Hz is
-provided for pipelines that need artefact removal without a band limit. Both application
-modes are exposed. `apply_causal` is what a controller can run; `apply_zero_phase` is what
-offline analysis should use, and `group_delay_samples` returns exactly zero for it, because
-the two passes have equal and opposite phase responses.
-
-Onset detection. Three methods behind one `OnsetDetector` protocol so they are directly
-comparable: a threshold on a causally smoothed rectified envelope, after Di Fabio (1987); the
-sliding window mean of Hodges and Bui (1996); and a Bonato style statistical detector after
-Bonato, D'Alessio and Knaflitz (1998), which whitens the signal with an autoregressive model
-fitted to the resting baseline and tests pairs of whitened samples against a chi squared
-distribution with two degrees of freedom. The last of these sets its threshold from the
-distribution, so its per test false alarm probability is a design parameter rather than an
-outcome. Micera, Sabatini and Dario (1998) give the equivalent generalised likelihood ratio
-formulation.
-
-Features. The time domain set of Hudgins, Parker and Scott (1993) together with the
-definitions collected by Phinyomark, Phukpattaranont and Limsakul (2012) and the
-autoregressive description of Graupe and Cline (1975). The frequency domain set is computed
-from a Welch averaged periodogram (Welch, 1967) with a stated segment length, and the median
-frequency is located by interpolating the cumulative power rather than snapping to a bin.
-
-Amplitude estimation. Four causal estimators with their design delay stated and their
-imposed delay measured from a step response.
-
-The alternatives that were considered and not chosen are recorded in
-[docs/design-notes.md](docs/design-notes.md).
+This is a library of building blocks for the stage between a surface electromyography amplifier
+and a prosthesis controller. Everything below is a recipe you can lift, and every recipe states
+what it costs in delay, because delay is the currency of this problem. Farrell and Weir (2007)
+measured the delay a myoelectric prosthesis user tolerates and reported an upper bound near
+100 ms to 125 ms covering everything from the muscle contracting to the device moving. A stage
+that cannot say what it spends of that cannot be assembled into a chain.
 
 ## Installation
 
@@ -115,61 +38,185 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-## Usage
+The package ships a `py.typed` marker, so its annotations are visible to anything that
+installs it rather than stopping at this repository's own type check.
+
+## Recipes
+
+Each of these runs as written. `raw` is a one dimensional array of samples and
+`sample_rate_hz` is its sample rate; `src/myoelectric/pipeline/loaders.py` produces both from
+a `.npz` or `.csv` export, and `src/myoelectric/pipeline/generation.py` produces them from the
+documented synthetic generator that every number on this page comes from.
+
+### Condition a raw channel
+
+Movement artefact sits below the signal band, mains interference sits inside it as narrow
+lines, and instrumentation noise covers all of it. One band pass and one notch cascade deal
+with all three, and the cascade is applied causally because a controller has no future samples.
 
 ```python
 import numpy as np
-
-from myoelectric.algorithm.filters import apply_causal, design_bandpass
-from myoelectric.algorithm.onset import HodgesBuiDetector
-from myoelectric.model.contraction import ContractionProfile
-from myoelectric.model.noise import NoiseSpec
-from myoelectric.model.sampling import SamplingSpec
-from myoelectric.pipeline.generation import GenerationSpec, generate
-
-sampling = SamplingSpec(sample_rate_hz=2000.0, duration_s=2.0)
-trace = generate(
-    GenerationSpec(
-        sampling=sampling,
-        profile=ContractionProfile.single(onset_s=0.8, offset_s=1.9, plateau_excitation=0.6),
-        noise=NoiseSpec(snr_db=10.0),
-    ),
-    np.random.default_rng(20260731),
+from myoelectric.algorithm.filters import (
+    apply_causal, cascade, design_bandpass, design_powerline_notch,
 )
 
-bandpass = design_bandpass(sampling.sample_rate_hz)
-print(f"group delay at 100 Hz: {bandpass.group_delay_ms(np.array([100.0]))[0]:.2f} ms")
-
-detected = HodgesBuiDetector().detect(apply_causal(bandpass, trace.signal), 2000.0)
-truth = trace.onset_indices[0]
-print(f"true onset {truth}, detected {detected.first_onset_index}")
-print(f"timing error {1e3 * (detected.first_onset_index - truth) / 2000.0:.1f} ms")
+chain = cascade(
+    (design_bandpass(sample_rate_hz), design_powerline_notch(sample_rate_hz)),
+    name="bandpass then notch",
+    rationale="Movement artefact below the band, mains lines inside it, noise above it.",
+)
+conditioned = apply_causal(chain, raw)
+print(chain.group_delay_ms(np.array([20.0, 120.0, 250.0])))
 ```
 
-Runnable examples live in `examples/`:
+Cost, at 2000 Hz: **31.95 ms at 20 Hz, 2.57 ms at 120 Hz, 1.24 ms at 250 Hz.** A filter does
+not have one delay. The band pass alone runs from 1.18 ms at 250 Hz to 31.68 ms at its 20 Hz
+corner, a factor of 27, and the corner is exactly where the envelope of a rising contraction
+carries much of its energy. Weighted across the band by the power that survives the chain, the
+whole cascade costs 4.16 ms. Quoting either number without saying which it is means nothing.
 
-```bash
-uv run python examples/generate_signal.py     # generate and describe one record
-uv run python examples/filter_design.py       # responses, delays, causal against zero phase
-uv run python examples/onset_benchmark.py     # detector comparison, the tables below
-uv run python examples/feature_report.py      # the feature library on one window
-uv run python examples/fatigue_demo.py        # median frequency over a sustained contraction
-uv run python examples/amplitude_latency.py   # smoothing against latency
+### Detect an onset causally
+
+Three detectors implement one protocol, so swapping between them changes nothing else.
+
+```python
+from myoelectric.algorithm.onset import BonatoDetector, EnvelopeThresholdDetector, HodgesBuiDetector
+
+detector = HodgesBuiDetector()          # or EnvelopeThresholdDetector(), BonatoDetector()
+result = detector.detect(conditioned, sample_rate_hz)
+print(result.first_onset_index, result.onset_indices, result.threshold)
+print(detector.decision_delay_s(sample_rate_hz))
 ```
 
-Each script accepts `--quick` for reduced settings, `--outdir` for the figure directory
-(default `outputs/`, which is not tracked), and `--no-figures`.
+Cost: **25.0 ms of decision delay** for Hodges and Bui, 50.0 ms for the envelope threshold,
+5.0 ms for the Bonato style detector, at 2000 Hz. That is separate from the timing bias, which
+is 6.7 ms to 12.9 ms for Hodges and Bui above 10 dB. Bias says where the detector places the
+onset and can be corrected for afterwards; decision delay is how long the controller waits
+before it is told anything, and nothing recovers it. A controller pays both.
+
+Threshold is not the only knob that matters. Every one of these detectors reaches a detection
+rate of one at some setting, and the setting that does it may also fire constantly on a resting
+record. The two rates are only meaningful read together, which is what the Results section does.
+
+![One conditioned two second record shown whole and then expanded around the onset, with the ground truth first motor unit discharge and all three detector declarations marked, every detector between 17 and 44 milliseconds late](docs/figures/onset-detectors.png)
+
+The lower panel is the argument for measuring rather than annotating. The ground truth is the
+sample at which the first motor unit discharged, and one discharge does not lift the trace out
+of the noise, so the instant is invisible. Every detector is necessarily late, and the 27 ms
+that separates the best from the worst is smaller than the region in which a human would place
+the onset by eye.
+
+### Extract the Hudgins feature set
+
+Two thresholds, in two different units, which is the mistake this signature exists to prevent.
+Zero crossings and Willison amplitude compare an amplitude, so their threshold has the units of
+the signal. Slope sign changes compare a product of two first differences, so its threshold has
+the units of the signal squared. Setting both to the same number is a units error that silently
+returns zero on an oversampled record.
+
+```python
+import numpy as np
+from myoelectric.algorithm.features_freq import frequency_domain_features, welch_spectrum
+from myoelectric.algorithm.features_time import time_domain_features
+
+rest = conditioned[:700]                       # a leading resting segment
+window = conditioned[2000:2500]                # 0.25 s of contraction
+
+time_domain = time_domain_features(
+    window,
+    amplitude_threshold=3.0 * float(np.std(rest)),
+    slope_threshold=float(np.var(np.diff(rest))),
+)
+frequency_domain = frequency_domain_features(welch_spectrum(window, sample_rate_hz))
+```
+
+Cost: **the window length, 500 samples at 2000 Hz, which is 250 ms.** A trailing feature window
+has to be complete before the features exist, so the window is the delay, and this one is twice
+the whole controller budget on its own. That is a choice the caller makes, and it is the reason
+the delay budget in the last recipe takes explicit stages rather than guessing.
+
+Every feature scales as its definition says it should. Under a gain of two, mean absolute value,
+root mean square, waveform length and integrated electromyogram scale by exactly 2.0000,
+variance by exactly 4.0000, and the counting and spectral features do not move at all, provided
+each threshold is scaled by the factor its own units require.
+
+### Estimate an envelope for proportional control
+
+```python
+from myoelectric.algorithm.envelope import (
+    ExponentialEnvelope, LowPassEnvelope, MovingAverageEnvelope, MovingRmsEnvelope,
+)
+
+estimator = ExponentialEnvelope(0.050)         # cheapest to run on an embedded controller
+amplitude = estimator.estimate(conditioned, sample_rate_hz)
+print(estimator.nominal_delay_samples(sample_rate_hz))
+```
+
+Cost: **28.1 ms of measured latency for 14.6 per cent plateau ripple.** Across the nine
+estimators the trade runs from 20.9 ms at 21.9 per cent ripple to 118.1 ms at 7.0 per cent.
+Every point of steadiness is paid for in delay, and three of the nine are dominated: something
+else in the same table is both steadier and faster.
+
+### Check the whole chain against a delay budget
+
+Each stage above reports what it spends. This adds them up and refuses a chain that does not fit.
+
+```python
+from myoelectric.analysis.delay_budget import (
+    assemble_budget, detector_stage, enforce, envelope_stage, filter_stage,
+)
+
+budget = enforce(assemble_budget((
+    filter_stage(chain, (20.0, 450.0)),                 # raises on a zero phase design
+    detector_stage(detector, sample_rate_hz),
+    envelope_stage(estimator, sample_rate_hz),
+)))
+print(budget.total_ms, budget.headroom_ms, budget.dominant_stage.name)
+```
+
+Cost: **78.91 ms of the 125 ms bound, 46.09 ms of headroom** for the classifier and the
+actuator, which this library does not implement and which therefore have to be entered by the
+caller. Swapping the amplitude estimator for the steadiest one in the table, on the grounds
+that 7.0 per cent ripple beats 14.6 per cent, puts the chain 16.70 ms over and `enforce` raises.
+A zero phase design cannot be entered at all: its group delay is zero only because its reverse
+pass reads samples that have not been acquired.
+
+## Causal against zero phase
+
+This distinction runs through everything above and it is not stylistic.
+
+`apply_zero_phase` runs the filter forwards and then backwards. The two passes have equal and
+opposite phase responses, so the combined phase is exactly zero, the attenuation is doubled in
+decibels, and no feature is displaced in time. It is the right choice for offline analysis, and
+the fatigue analysis at the top of this page uses it.
+
+It is unusable on a prosthesis. Producing the output at one sample requires samples that have
+not been acquired. Three specific consequences follow, and all three are visible in this
+repository rather than asserted:
+
+- `group_delay_samples` returns exactly zero for `zero_phase` and the frequency dependent
+  design value for `causal`. A burst at 100 Hz is displaced by 3.38 samples under causal
+  filtering, against a design group delay of 3.37 samples, and by -0.00 samples under zero
+  phase filtering.
+- A detector evaluated after a zero phase filter reports less bias than the same detector
+  would have in a controller, because the filter has smeared the onset backwards in time. The
+  detector sweep below therefore uses causal filtering throughout.
+- `filter_stage` refuses a `zero_phase` design outright rather than charging the budget zero.
+
+The test suite demonstrates the distinction rather than describing it: one sample of the input
+is perturbed and the outputs that move are checked, which under causal filtering are only the
+samples after it.
 
 ## Results
 
-Every number below is the output of the command named above it, at a 2000 Hz sample rate, on
+Every number here is printed by the command named above it, at a 2000 Hz sample rate, on
 synthetic signals, with the generator seeded at 20260731.
 
 ### Filter responses
 
 `uv run python examples/filter_design.py`. Band pass, 20 Hz to 450 Hz, fourth order
-Butterworth. Group delay is computed from the design by summing the group delays of its
-second order sections.
+Butterworth. Group delay is computed from the design by summing the group delays of its second
+order sections, which is exact because delays add in cascade.
 
 | Frequency (Hz) | Causal gain (dB) | Causal group delay (ms) | Zero phase gain (dB) | Zero phase group delay (ms) |
 | ---: | ---: | ---: | ---: | ---: |
@@ -183,13 +230,8 @@ second order sections.
 | 600 | -17.46 | 1.06 | -34.93 | 0.00 |
 | 800 | -45.74 | 0.62 | -91.48 | 0.00 |
 
-The group delay is 1.18 ms to 4.46 ms across the part of the band that carries most of the
-power, and rises to 31.68 ms at the lower corner, where the envelope of a rising contraction
-has much of its energy. Zero phase filtering doubles the attenuation in decibels and removes
-the delay entirely.
-
-Power line notch, 50 Hz with two harmonics, quality factor 30, so each section is 1.67 Hz
-wide at the fundamental.
+Power line notch, 50 Hz with two harmonics, quality factor 30, so each section is 1.67 Hz wide
+at the fundamental.
 
 | Frequency (Hz) | Gain (dB) | Group delay (ms) |
 | ---: | ---: | ---: |
@@ -203,10 +245,13 @@ wide at the fundamental.
 
 The gain at a notch centre is a transmission zero, so the printed figure is limited only by
 floating point, and the group delay there is undefined rather than large, which is why those
-entries read `nan`.
+entries read `nan`. Note what the delay column does either side of it: a component 5 Hz from
+the mains passes almost untouched and is delayed 5.3 ms, while one 2 Hz away is delayed 28.6 ms.
+A narrow notch is cheap in amplitude and expensive in time, and that is where the difference
+between the two delay budget rules below comes from.
 
-Measured against injected contamination on a generated record, over the settled part of the
-record after the first 0.5 s, the band pass and notch chain gives:
+Measured against injected contamination on a generated record, over the settled part after the
+first 0.5 s, the band pass and notch chain gives:
 
 | Component | Root mean square before | After | Change (dB) |
 | --- | ---: | ---: | ---: |
@@ -214,10 +259,6 @@ record after the first 0.5 s, the band pass and notch chain gives:
 | Movement artefact | 0.2492 | 0.0027 | -39.4 |
 | Wideband noise | 0.1795 | 0.1160 | -3.8 |
 | Clean signal | 0.9873 | 0.9433 | -0.4 |
-
-Delay measured rather than quoted: an amplitude modulated burst at 100 Hz is displaced by
-3.38 samples under causal filtering, against a design group delay of 3.37 samples, and by
--0.00 samples under zero phase filtering.
 
 ### Onset detection against signal to noise ratio
 
@@ -246,21 +287,23 @@ positive when the detection is late. Detector settings are the ones each source 
 | bonato-glr p=0.001 | 15 | 1.000 +/- 0.000 | 0.000 +/- 0.000 | 0.000 | 32.3 | 21.2 | 17.5 | 27.8 | 41.8 |
 | bonato-glr p=0.001 | 20 | 1.000 +/- 0.000 | 0.000 +/- 0.000 | 0.000 | 27.5 | 15.1 | 16.9 | 27.8 | 35.2 |
 
-Reading of the table. At these settings all three detectors produce no false positives at
-all: with sixty resting trials, a rate recorded as zero has an upper 95 per cent bound of
-0.050 by the rule of three. Because every threshold is estimated from the resting baseline of
-the record being tested, the false positive rate is a property of the threshold and the
-decision rule and does not vary with the amplitude of the contraction, which is why that
-column is flat. The detectors separate on the other two measures. Hodges and Bui reaches a
-detection rate of one by 0 dB and a mean bias of 6.7 ms to 12.9 ms above 10 dB. The envelope
-threshold reaches one by 5 dB but stays 39 ms to 48 ms late, because it cannot respond faster
-than the group delay of its own 8 Hz smoothing filter, which is 28 ms at zero frequency. The
-Bonato style detector needs 15 dB to reach one at this operating point and is 27 ms to 32 ms
-late there.
+At these settings all three detectors produce no false positives at all: with sixty resting
+trials, a rate recorded as zero has an upper 95 per cent bound of 0.050 by the rule of three.
+Because every threshold is estimated from the resting baseline of the record being tested, the
+false positive rate is a property of the threshold and the decision rule and does not vary with
+the amplitude of the contraction, which is why that column is flat.
 
-The bias distribution matters. At 5 dB the Bonato detector has a mean bias of 79.8 ms with a
-standard deviation of 29.8 ms and an interquartile range from 60.0 ms to 98.5 ms, so the mean
-is not a summary of a tight distribution. Reporting the mean alone would hide that.
+The detectors separate on the other two measures. Hodges and Bui reaches a detection rate of
+one by 0 dB and a mean bias of 6.7 ms to 12.9 ms above 10 dB. The envelope threshold reaches
+one by 5 dB but stays 39 ms to 48 ms late, because it cannot respond faster than the group
+delay of its own 8 Hz smoothing filter, which the amplitude table below measures at 28.1 ms.
+The Bonato style
+detector needs 15 dB to reach one at this operating point and is 27 ms to 32 ms late there.
+
+The distribution matters as much as the mean. At 5 dB the Bonato detector has a mean bias of
+79.8 ms with a standard deviation of 29.8 ms and an interquartile range from 60.0 ms to
+98.5 ms, so the mean is not a summary of a tight distribution. Reporting it alone would hide
+that.
 
 ### Threshold sensitivity at 5 dB
 
@@ -280,47 +323,16 @@ characteristic that a single detection rate hides.
 | bonato-glr p=0.001 | 0.717 +/- 0.058 | 0.000 +/- 0.000 | 0.000 | 67.4 | 71.0 |
 
 At the most sensitive settings the detection rate falls rather than rises, because a detector
-triggered by noise places its first onset before the contraction and that detection then
-falls outside the match window. The negative mean bias of `hodges-bui k=1` and
-`bonato-glr p=0.1` is the same effect seen from the other side. This is why the two rates
-have to be read together.
-
-Decision delay, which is separate from timing bias: 50.0 ms for the envelope threshold,
-25.0 ms for Hodges and Bui, and 5.0 ms for the Bonato style detector at 2000 Hz. Timing bias
-says where a detector places the onset; decision delay says how long after that instant it
-can say so. A controller pays the sum.
-
-### Muscle fatigue
-
-`uv run python examples/fatigue_demo.py`. A 60 s sustained contraction at 0.6 normalised
-excitation, analysed in thirty 2 s epochs, band pass and notch applied with zero phase
-filtering because the analysis is offline and no timing decision depends on it. The action
-potential time constant is scaled from 1.00 to 1.35 across the contraction, representing
-slowed muscle fibre conduction velocity.
-
-| Feature | Epochs | Start (Hz) | End (Hz) | Slope (Hz/s) | Normalised slope (%/s) | t | df | One sided p | R squared |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| median frequency | 30 | 95.8 | 69.9 | -0.351 | -0.383 | -11.23 | 28 | 3.47e-12 | 0.818 |
-| mean frequency | 30 | 102.5 | 76.2 | -0.418 | -0.419 | -23.10 | 28 | 4.49e-20 | 0.950 |
-
-The statistic is the Student t statistic of the ordinary least squares slope of the feature
-on epoch start time, on 28 degrees of freedom, with the one sided probability under the null
-hypothesis of no trend. The test is one sided because the physiological prediction is
-directional: fatigue lowers median frequency and does not raise it.
-
-The size of the fall agrees with the model that produced it. Scaling the action potential
-time constant by 1.35 should compress the spectrum to 1/1.35, that is 0.741, of its initial
-frequency, and the fitted line falls to 0.778 of its initial value over the 58 s span. The
-median frequency shift under sustained contraction is one of the most reliably reproduced
-effects in surface electromyography, which is why it is used here to validate the spectral
-feature implementation rather than presented as a finding.
+triggered by noise places its first onset before the contraction and that detection then falls
+outside the match window. The negative mean bias of `hodges-bui k=1` and `bonato-glr p=0.1` is
+the same effect seen from the other side. This is why the two rates have to be read together.
 
 ### Amplitude estimation for proportional control
 
 `uv run python examples/amplitude_latency.py`. One step contraction with zero rise time, at
-19.97 dB achieved signal to noise ratio, causal band pass and notch before estimation.
-Latency is the time to reach half of the change from rest to plateau. Plateau ripple is the
-standard deviation of the estimate over the settled plateau divided by its mean.
+19.97 dB achieved signal to noise ratio, causal band pass and notch before estimation. Latency
+is the time to reach half of the change from rest to plateau. Plateau ripple is the standard
+deviation of the estimate over the settled plateau divided by its mean.
 
 | Estimator | Nominal delay (ms) | Measured latency (ms) | Rise time 10-90 (ms) | Plateau ripple (%) |
 | --- | ---: | ---: | ---: | ---: |
@@ -334,22 +346,75 @@ standard deviation of the estimate over the settled plateau divided by its mean.
 | exponential-25ms | 24.8 | 20.9 | 14.6 | 21.9 |
 | exponential-50ms | 49.8 | 28.1 | 96.2 | 14.6 |
 
+![Plateau ripple against measured latency for nine amplitude estimators on a logarithmic latency axis, with the non dominated frontier drawn through six of them and three dominated estimators marked as hollow points](docs/figures/amplitude-latency-ripple.png)
+
+The frontier is the part of this table that the table does not show. Six estimators are non
+dominated and three are not: `moving-average-50ms`, `moving-average-100ms` and
+`lowpass-8Hz-order2` each have another estimator in the same list that is both steadier and
+faster, so there is no operating point at which they are the right choice.
+
 Measured latency tracks the nominal group delay for the moving average and the low pass
 estimators, which checks that the delay figures quoted in the design are the delays actually
 imposed. Two entries differ from their nominal delay for reasons that have closed forms. The
 moving root mean square reaches half amplitude in a quarter of its window rather than half,
 because the mean square ramps linearly across the window and the square root compresses the
-first part of that ramp. The exponential estimator reaches half amplitude at 0.69 of its
-group delay, the natural logarithm of two, because its step response is a single exponential
-rather than a ramp. Ripple falls from 23.0 per cent to 7.0 per cent across the family, and
-every point of that reduction is paid for in delay.
+first part of that ramp. The exponential estimator reaches half amplitude at 0.69 of its group
+delay, the natural logarithm of two, because its step response is a single exponential rather
+than a ramp.
 
-### Feature library on one window
+### The delay budget of a whole chain
 
-`uv run python examples/feature_report.py`. A 0.25 s window taken from the plateau of a
-generated contraction at 20 dB, after a causal band pass and notch. The amplitude threshold
-is three resting standard deviations, 0.3916, and the slope threshold is the variance of the
-resting first difference, 0.002988, which has the units of amplitude squared.
+Same command. Conditioning, onset decision and amplitude estimation, each charged the delay it
+imposes, summed, and compared against the Farrell and Weir (2007) upper bound.
+
+| Stage | Delay (ms) | Basis |
+| --- | ---: | --- |
+| bandpass then notch | 4.16 | group delay over 20 to 450 Hz, weighted by the squared magnitude response under a flat input spectrum |
+| hodges-bui k=3 | 25.00 | decision delay at 2000 Hz |
+| exponential-50ms | 49.75 | design group delay at zero frequency, 99.5 samples |
+| **total** | **78.91** | within budget |
+| budget | 125.00 | Farrell and Weir (2007) upper bound, headroom +46.09 ms |
+
+Replacing the amplitude estimator with `lowpass-2Hz-order2`, which is the steadiest in the
+table above, takes the total to 141.70 ms and `enforce` raises `DelayBudgetExceededError`
+naming the stage responsible. Nothing else about the chain changed.
+
+A filter has no single group delay, so the stage records the rule it was reduced by. Charged as
+a weighted mean the conditioning chain costs 4.16 ms; charged as a strict bound over its pass
+band it costs 94.14 ms, reached at 50.88 Hz. The whole difference is the notch: group delay
+peaks where a magnitude response falls fastest, so the largest figure in the band belongs to a
+component the notch exists to destroy. The weighted rule gives that component the weight its
+surviving amplitude earns, which is almost none, and is the delay a broadband envelope actually
+experiences. Both are reported because a bound that is never quoted is a bound nobody checked.
+
+### Muscle fatigue
+
+`uv run python examples/fatigue_demo.py`, the figure at the top of this page. A 60 s sustained
+contraction at 0.6 normalised excitation, analysed in thirty 2 s epochs, band pass and notch
+applied with zero phase filtering because the analysis is offline and no timing decision
+depends on it. The action potential time constant is scaled from 1.00 to 1.35 across the
+contraction, representing slowed muscle fibre conduction velocity.
+
+| Feature | Epochs | Start (Hz) | End (Hz) | Slope (Hz/s) | Normalised slope (%/s) | t | df | One sided p | R squared |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| median frequency | 30 | 95.8 | 69.9 | -0.351 | -0.383 | -11.23 | 28 | 3.47e-12 | 0.818 |
+| mean frequency | 30 | 102.5 | 76.2 | -0.418 | -0.419 | -23.10 | 28 | 4.49e-20 | 0.950 |
+
+The statistic is the Student t statistic of the ordinary least squares slope of the feature on
+epoch start time, on 28 degrees of freedom, with the one sided probability under the null
+hypothesis of no trend. The test is one sided because the physiological prediction is
+directional: fatigue lowers median frequency and does not raise it.
+
+The size of the fall agrees with the model that produced it. Scaling the action potential time
+constant by 1.35 should compress the spectrum to 1/1.35, that is 0.741, of its initial
+frequency, and the fitted line falls to 0.778 of its initial value over the 58 s span.
+
+### The feature library on one window
+
+`uv run python examples/feature_report.py`. A 0.25 s window from the plateau of a generated
+contraction at 20 dB, after a causal band pass and notch. The amplitude threshold is three
+resting standard deviations, 0.3916, and the slope threshold is the variance of the resting
+first difference, 0.002988, which has the units of amplitude squared.
 
 | Time domain feature | Value | Frequency domain feature | Value |
 | --- | ---: | --- | ---: |
@@ -364,72 +429,121 @@ resting first difference, 0.002988, which has the units of amplitude squared.
 | Willison amplitude | 88 | | |
 | Autoregressive coefficients | 1.9656, -1.1670, 0.0500, 0.0653 | | |
 
-Under a gain of 2.0, mean absolute value, root mean square, waveform length and integrated
-electromyogram scale by exactly 2.0000, variance by exactly 4.0000, and zero crossings, slope
-sign changes, Willison amplitude, median frequency and mean frequency are all unchanged,
-provided each threshold is scaled by the factor its own units require.
+## Where each piece lives
 
-## Architecture
-
-Five layers. The dependency direction runs one way: `analysis` reads traces from `pipeline`,
-`pipeline` calls `algorithm` and constructs `model` values, `algorithm` consumes `model`
-values, and `model` depends on nothing.
+Five layers, dependencies running one way. `analysis` reads traces from `pipeline`, `pipeline`
+calls `algorithm` and constructs `model` values, `algorithm` consumes `model` values, and
+`model` depends on nothing.
 
 | Module | Responsibility |
 | --- | --- |
-| `src/myoelectric/model/sampling.py` | Sample rate and record length, with conversions between seconds and samples |
-| `src/myoelectric/model/motor_unit.py` | Motor unit pool: recruitment thresholds, rate coding, Hermite Rodriguez action potentials |
-| `src/myoelectric/model/contraction.py` | Contraction and gesture definitions as a trapezoidal neural excitation profile |
-| `src/myoelectric/model/noise.py` | Specifications for wideband noise, power line interference, and movement artefact |
-| `src/myoelectric/algorithm/filters.py` | Band pass, notch and high pass design, causal and zero phase application, group and phase delay |
-| `src/myoelectric/algorithm/autoregressive.py` | Biased autocorrelation, Levinson Durbin recursion, whitening filter |
-| `src/myoelectric/algorithm/features_time.py` | Time domain feature library with every definition written out |
-| `src/myoelectric/algorithm/features_freq.py` | Welch spectrum, median and mean frequency, spectral moments |
-| `src/myoelectric/algorithm/onset.py` | Three onset detectors behind the `OnsetDetector` protocol |
-| `src/myoelectric/algorithm/envelope.py` | Four causal amplitude estimators and the step response measurement |
-| `src/myoelectric/pipeline/generation.py` | Synthetic record generation with ground truth onsets |
-| `src/myoelectric/pipeline/detection_sweep.py` | Detector evaluation over signal to noise ratio, active and resting trials |
-| `src/myoelectric/pipeline/fatigue.py` | Sustained contraction protocol with per epoch spectral features |
-| `src/myoelectric/pipeline/latency.py` | Step contraction study for the amplitude estimators |
-| `src/myoelectric/pipeline/loaders.py` | `EmgRecording` and the loader protocol for substituting a real dataset |
-| `src/myoelectric/analysis/detector_metrics.py` | Detection rate, false positive rate, and the timing bias distribution |
-| `src/myoelectric/analysis/fatigue_stats.py` | Linear trend of a spectral feature with its t statistic and probability |
-| `src/myoelectric/analysis/reporting.py` | Markdown tables for every trace |
-| `src/myoelectric/analysis/figures.py` | Figures, built through the matplotlib object interface with no global state |
+| `model/sampling.py` | Sample rate and record length, with conversions between seconds and samples |
+| `model/motor_unit.py` | Motor unit pool: recruitment thresholds, rate coding, Hermite Rodriguez action potentials |
+| `model/contraction.py` | Contraction and gesture definitions as a trapezoidal neural excitation profile |
+| `model/noise.py` | Specifications for wideband noise, power line interference, and movement artefact |
+| `algorithm/filters.py` | Band pass, notch and high pass design, causal and zero phase application, group and phase delay |
+| `algorithm/autoregressive.py` | Biased autocorrelation, Levinson Durbin recursion, whitening filter |
+| `algorithm/features_time.py` | Time domain feature library with every definition written out |
+| `algorithm/features_freq.py` | Welch spectrum, median and mean frequency, spectral moments |
+| `algorithm/onset.py` | Three onset detectors behind the `OnsetDetector` protocol |
+| `algorithm/envelope.py` | Four causal amplitude estimators and the step response measurement |
+| `pipeline/generation.py` | Synthetic record generation with ground truth onsets |
+| `pipeline/detection_sweep.py` | Detector evaluation over signal to noise ratio, active and resting trials |
+| `pipeline/fatigue.py` | Sustained contraction protocol with per epoch spectral features |
+| `pipeline/latency.py` | Step contraction study for the amplitude estimators |
+| `pipeline/loaders.py` | `EmgRecording` and the loader protocol for substituting a real dataset |
+| `analysis/detector_metrics.py` | Detection rate, false positive rate, and the timing bias distribution |
+| `analysis/fatigue_stats.py` | Linear trend of a spectral feature with its t statistic and probability |
+| `analysis/delay_budget.py` | Per stage delay accounting, summed and enforced against a limit |
+| `analysis/reporting.py` | Markdown tables for every trace |
+| `analysis/figures.py` | Figures, built through the matplotlib object interface with no global state |
 | `examples/` | Thin wiring scripts, no logic |
 
-## Testing
+Paths above are relative to `src/myoelectric/`. The design decisions behind each of them, and
+the alternatives that were considered and rejected, are in
+[docs/design-notes.md](docs/design-notes.md).
+
+## Reproducing every number and figure
 
 ```bash
-uv run pytest
+uv sync --all-extras --dev
+uv run pytest -q
 uv run ruff check .
 uv run mypy
 ```
 
-The suite has three tiers: property and invariant tests covering the mathematics,
-regression tests pinning recorded behaviour, and integration tests running each
-example script under a reduced iteration count.
+Every table above comes from one of these, run from the repository root:
 
-The property tier measures rather than assumes. A filter gain is measured from a filtered
-sine and compared against the gain the design predicts. The distinction between causal and
-zero phase filtering is tested by perturbing one sample and checking which outputs move, so
-the property is demonstrated rather than described. Every time domain feature is checked on a
-signal whose answer is known by inspection or in closed form, including zero crossings on a
-square wave, waveform length on a triangle wave, and autoregressive coefficients on a
-sinusoid, whose order two Yule Walker solution is exactly `(2 cos w, -1)`. Median frequency is
-checked against a line spectrum whose analytic value is known. Every detector is checked both
-for finding a clean onset and for declaring nothing on a resting record, and its timing bias
-is measured over repeated trials rather than assumed to be zero.
+```bash
+uv run python examples/generate_signal.py     # generate and describe one record
+uv run python examples/filter_design.py       # responses, delays, causal against zero phase
+uv run python examples/onset_benchmark.py     # detector comparison
+uv run python examples/feature_report.py      # the feature library on one window
+uv run python examples/fatigue_demo.py        # median frequency over a sustained contraction
+uv run python examples/amplitude_latency.py   # smoothing against latency, and the delay budget
+uv run python examples/make_figures.py        # the three tracked figures under docs/figures
+```
 
-Tolerances are derived from the measurement, never from the error that happened to be
-observed. Timing tolerances are expressed in samples, spectral tolerances in frequency bins,
-and rate tolerances come from the binomial standard error over the number of trials. Steady
-state gain tolerances are computed from the tail of the filter's own impulse response, plus a
-floating point accumulation bound, because a tolerance derived only from the settling
-argument falls below the arithmetic noise of the computation it constrains and then fails on
-a different machine by a few units in the last place. The regression tier pins feature values
-on fixed inputs, closed form filter responses, detector verdicts, counts and aggregate rates,
-all of which reproduce elsewhere.
+Each accepts `--quick` for reduced settings, `--outdir` for the figure directory, and
+`--no-figures`.
+
+**The three figures on this page are committed snapshots, not build artefacts.**
+`uv run python examples/make_figures.py` regenerates all three into `docs/figures/`, at 90 dots
+per inch and with dense traces reduced to one vertical extent per pixel column, which holds the
+three of them to 193 KB against a 250 KB budget. Continuous integration checks that the files
+exist and that they fit the budget, and deliberately does not compare them byte for byte:
+matplotlib output is not byte reproducible across platforms or across its own releases, so a
+byte comparison would fail on a runner where nothing had changed.
+
+Coverage is measured with:
+
+```bash
+uv run pytest --cov=src/myoelectric --cov-report=term-missing
+```
+
+which reports **94 per cent** of 1686 statements. Continuous integration runs the same command
+with `--cov-fail-under=92`, two points below the measured figure, so ordinary movement does not
+break the build but a real regression does.
+
+The suite has three tiers. Property and invariant tests cover the mathematics: a filter gain is
+measured from a filtered sine and compared against the gain the design predicts, every time
+domain feature is checked on a signal whose answer is known in closed form, including
+autoregressive coefficients on a sinusoid whose order two Yule Walker solution is exactly
+`(2 cos w, -1)`, and median frequency is checked against a line spectrum whose analytic value
+is known. Regression tests pin feature values on fixed inputs, closed form filter responses,
+and aggregate rates with a tolerance derived from the binomial standard error. Integration
+tests run every example script under reduced settings.
+
+Tolerances are derived from the measurement, never from the error that happened to be observed.
+Timing tolerances are expressed in samples, spectral tolerances in frequency bins, and rate
+tolerances come from the binomial standard error over the number of trials.
+
+## What these numbers do not establish
+
+**Every result on this page is computed on synthetic signals.** No dataset is downloaded and
+none is committed. The signals come from the generator in
+`src/myoelectric/pipeline/generation.py`: a motor unit pool with size ordered recruitment and
+rate coding after Fuglevand, Winter and Patla (1993), Hermite Rodriguez action potentials after
+Lo Conte, Merletti and Sandri (1994), additive wideband noise at a specified signal to noise
+ratio, power line interference with harmonics, and low frequency movement artefact.
+
+What that establishes is that the mathematics is correct, that the ground truth is exact to the
+sample, and that each method behaves as its source describes under the conditions the source
+assumed. What it does not establish is how any of it performs on a human arm. A real surface
+recording carries electrode impedance drift, crosstalk from neighbouring muscles, non stationary
+noise, amplifier saturation, and movement artefact correlated with the contraction rather than
+independent of it. The absolute detection rates and timing biases above characterise these
+detectors against this generator; their ordering is more likely to survive a change of data
+than their values, and even the ordering should be measured again before it is relied on.
+[docs/design-notes.md](docs/design-notes.md) sets this out in full, along with the limitations
+that remain open and the one that has been closed.
+
+The route to a real evaluation is deliberately short. Everything downstream of `EmgRecording`
+in `src/myoelectric/pipeline/loaders.py` takes an array and a sample rate, and
+`NpzRecordingLoader` and `CsvRecordingLoader` cover the two formats a dataset export normally
+takes. Three public datasets are suitable and none is redistributed here: Ninapro (Atzori et
+al., 2014), putEMG (Kaczmarek et al., 2019), and the PhysioNet examples of electromyograms
+(Goldberger et al., 2000).
 
 ## References
 
@@ -528,6 +642,7 @@ all of which reproduce elsewhere.
 | [scipy](https://scipy.org/) | Butterworth and notch design, second order section filtering, Welch periodogram, chi squared and Student t distributions, linear regression | BSD-3-Clause |
 | [matplotlib](https://matplotlib.org/) | Figures, used through the object interface with the Agg canvas | Matplotlib licence, a BSD style licence based on the Python Software Foundation licence |
 | [pytest](https://pytest.org/) | Test runner, development only | MIT |
+| [pytest-cov](https://pytest-cov.readthedocs.io/) | Coverage measurement, development only | MIT |
 | [ruff](https://docs.astral.sh/ruff/) | Linting and import ordering, development only | MIT |
 | [mypy](https://mypy-lang.org/) | Static type checking in strict mode, development only | MIT |
 
