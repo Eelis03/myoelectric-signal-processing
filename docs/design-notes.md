@@ -54,7 +54,8 @@ takes, and `recording_from_trace` wraps a generated record in the same object, s
 synthetic path and the real path are identical from that point on. Three things must be
 checked when substituting real data, and they are listed in the module docstring: the sample
 rate, because every filter has to be redesigned at the recording rate rather than reused; the
-mains frequency, which is 50 Hz or 60 Hz depending on where the recording was made; and the
+mains frequency, which is 50 Hz or 60 Hz depending on where the recording was made and which
+`analysis/powerline_check.py` measures from the record when the dataset does not say; and the
 meaning of any annotated onset, because a cue time or an expert annotation is not the instant
 the first motor unit discharged, and a timing bias measured against one is not comparable
 with the biases reported here.
@@ -96,6 +97,32 @@ also smears an onset backwards in time, so a detector evaluated after a zero pha
 appears to have less bias than the same detector would have in a controller. The detector
 sweep therefore uses causal filtering by default, and the fatigue analysis uses zero phase
 filtering, since the fatigue analysis is offline and no timing decision depends on it.
+
+### Deciding the mains frequency rather than assuming it
+
+The notch above has to be designed at a frequency, and on synthetic data that frequency is
+whatever the generator was given. On a real recording it is 50 Hz or 60 Hz, and a dataset that
+states its sample rate and its annotation protocol does not always state where it was recorded.
+Designing at the wrong one is a silent failure of a particular kind: three transmission zeros
+are placed in the middle of the signal band, the interference passes through untouched, and
+nothing downstream reports either, because a notch cannot tell whether it removed anything.
+
+`analysis/powerline_check.py` measures the answer instead. Each candidate is scored by the
+power at its fundamental over the median power of the bins beside it, at a 1 Hz resolution, and
+a frequency is named only when it stands 6 dB above both that floor and the other candidate.
+Three choices inside that are worth stating. The floor is local rather than an average over the
+record, because the surface spectrum peaks between 50 Hz and 150 Hz, which is exactly where the
+lines are. The floor of every candidate excludes the main lobe of every candidate, so that a
+60 Hz line cannot raise the floor the 50 Hz candidate is judged against. And the score is the
+excess at the fundamental alone: the harmonics are measured and reported, because they say how
+many sections a notch needs, but mains interference falls away with each harmonic while the
+signal it competes against rises towards its peak, so a buried harmonic is not evidence against
+a fundamental that is not buried.
+
+The threshold is what makes the check able to answer that there is no line, which a rule that
+simply took the larger of the two candidates could not do. Where it sits relative to the
+fluctuation of the estimate is measured rather than asserted: the test suite runs sixty records
+that carry no line and requires that none is declared.
 
 ### Onset detectors
 
@@ -228,6 +255,17 @@ when the mains frequency wanders. Neither was chosen because both introduce stat
 converge, and a value from an unconverged adaptation is not reproducible across machines,
 which would make it unpinnable in the regression tier. A fixed notch is a closed form design
 with a stated width, and that width covers the drift a mains supply actually exhibits.
+
+### Notching both mains frequencies instead of deciding between them
+
+A record could be passed through notches at 50 Hz and at 60 Hz and their harmonics without
+deciding anything, which needs no measurement at all and cannot name the wrong frequency
+because it names both. It was not chosen because the three extra transmission zeros are not
+free. Each removes a 1.67 Hz slice of a band whose power is concentrated between 50 Hz and
+150 Hz, each contributes its own group delay, and the worst case rule of the delay budget
+charges a chain the largest group delay anywhere in its pass band, which is where a notch is
+steepest. The measurement costs one Welch estimate, once, before any filter is designed, and
+leaves the notch with the three sections it needs rather than six.
 
 ### Adaptive whitening in the Bonato detector
 
