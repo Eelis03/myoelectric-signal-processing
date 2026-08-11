@@ -170,9 +170,7 @@ def main() -> None:
     if not arguments.no_figures:
         from myoelectric.analysis.figures import latency_figure, save
 
-        path = save(
-            latency_figure(trace.measurements), arguments.outdir / "amplitude_latency.png"
-        )
+        path = save(latency_figure(trace.measurements), arguments.outdir / "amplitude_latency.png")
         print(f"\nfigure written to {path}")
 
 

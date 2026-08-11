@@ -87,8 +87,7 @@ class EmgRecording:
             raise ValueError(f"samples must be two dimensional, got shape {self.samples.shape}")
         if self.samples.shape[1] != len(self.channel_names):
             raise ValueError(
-                f"got {self.samples.shape[1]} channels but "
-                f"{len(self.channel_names)} channel names"
+                f"got {self.samples.shape[1]} channels but {len(self.channel_names)} channel names"
             )
         if self.sample_rate_hz <= 0.0:
             raise ValueError("sample_rate_hz must be positive")

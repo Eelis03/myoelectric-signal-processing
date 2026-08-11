@@ -208,9 +208,7 @@ def filter_stage(
     low, high = float(band_hz[0]), float(band_hz[1])
     nyquist = 0.5 * design.sample_rate_hz
     if not 0.0 <= low < high <= nyquist:
-        raise ValueError(
-            f"band_hz must satisfy 0 <= low < high <= {nyquist} Hz, got {band_hz}"
-        )
+        raise ValueError(f"band_hz must satisfy 0 <= low < high <= {nyquist} Hz, got {band_hz}")
     if n_points < 2:
         raise ValueError("n_points must be at least 2")
 

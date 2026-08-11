@@ -88,9 +88,7 @@ def test_the_time_feature_table_reports_the_values_it_was_given() -> None:
     }
     assert rendered["Zero crossings"] == str(features.zero_crossings)
     assert rendered["Willison amplitude"] == str(features.willison_amplitude)
-    assert float(rendered["Root mean square"]) == pytest.approx(
-        features.root_mean_square, abs=5e-5
-    )
+    assert float(rendered["Root mean square"]) == pytest.approx(features.root_mean_square, abs=5e-5)
     assert float(rendered["Variance"]) == pytest.approx(features.variance, abs=5e-5)
 
 
@@ -107,9 +105,7 @@ def test_the_frequency_feature_table_reports_the_values_it_was_given() -> None:
     assert float(rows["Median frequency (Hz)"]) == pytest.approx(
         features.median_frequency_hz, abs=5e-3
     )
-    assert float(rows["Mean frequency (Hz)"]) == pytest.approx(
-        features.mean_frequency_hz, abs=5e-3
-    )
+    assert float(rows["Mean frequency (Hz)"]) == pytest.approx(features.mean_frequency_hz, abs=5e-3)
     assert float(rows["Resolution (Hz)"]) == pytest.approx(features.resolution_hz, rel=1e-2)
 
 

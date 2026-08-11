@@ -60,9 +60,7 @@ class LatencyTrace:
     achieved_snr_db: float
 
 
-def run_latency_study(
-    estimators: tuple[EnvelopeEstimator, ...], spec: LatencySpec
-) -> LatencyTrace:
+def run_latency_study(estimators: tuple[EnvelopeEstimator, ...], spec: LatencySpec) -> LatencyTrace:
     """Measure the delay and ripple of every estimator on one step contraction."""
     if not estimators:
         raise ValueError("at least one estimator is required")
@@ -95,6 +93,4 @@ def run_latency_study(
         measure_latency(estimator, samples, spec.sample_rate_hz, step_index, plateau)
         for estimator in estimators
     )
-    return LatencyTrace(
-        spec=spec, measurements=measurements, achieved_snr_db=trace.achieved_snr_db
-    )
+    return LatencyTrace(spec=spec, measurements=measurements, achieved_snr_db=trace.achieved_snr_db)

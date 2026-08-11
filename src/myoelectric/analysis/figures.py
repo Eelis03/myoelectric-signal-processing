@@ -134,9 +134,7 @@ def signal_overview_figure(trace: SignalTrace, spectrum: PowerSpectrum) -> Figur
     return figure
 
 
-def filter_response_figure(
-    designs: tuple[FilterDesign, ...], frequencies_hz: np.ndarray
-) -> Figure:
+def filter_response_figure(designs: tuple[FilterDesign, ...], frequencies_hz: np.ndarray) -> Figure:
     """Magnitude and group delay of every design, causal and zero phase."""
     figure = _figure(height=6.5)
     axes = figure.subplots(2, 1, sharex=True)
@@ -150,8 +148,10 @@ def filter_response_figure(
     axes[0].set_ylabel("gain (dB)")
     axes[0].set_ylim(-80.0, 10.0)
     axes[0].legend(fontsize=7, loc="lower center")
-    axes[0].set_title("Causal responses. Zero phase filtering gives twice the gain in dB "
-                      "and exactly zero group delay, marked by the dashed line.")
+    axes[0].set_title(
+        "Causal responses. Zero phase filtering gives twice the gain in dB "
+        "and exactly zero group delay, marked by the dashed line."
+    )
     axes[1].set_ylabel("group delay (ms)")
     axes[1].set_xlabel("frequency (Hz)")
     return figure

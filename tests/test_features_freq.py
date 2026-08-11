@@ -43,9 +43,7 @@ def test_spectrum_resolution_is_the_reciprocal_of_the_segment_length(
     sample_rate_hz: float,
 ) -> None:
     """The Welch estimate resolves one over the segment length."""
-    spectrum = welch_spectrum(
-        _analytic_signal(sample_rate_hz), sample_rate_hz, segment_s=SEGMENT_S
-    )
+    spectrum = welch_spectrum(_analytic_signal(sample_rate_hz), sample_rate_hz, segment_s=SEGMENT_S)
     assert spectrum.resolution_hz == pytest.approx(1.0 / SEGMENT_S, rel=1e-12)
     assert float(spectrum.frequencies_hz[1] - spectrum.frequencies_hz[0]) == pytest.approx(
         spectrum.resolution_hz, rel=1e-12
@@ -59,9 +57,7 @@ def test_median_and_mean_frequency_match_the_analytic_value(sample_rate_hz: floa
     component sits exactly on a bin centre, so window leakage is symmetric about each
     component and cancels in both moments.
     """
-    spectrum = welch_spectrum(
-        _analytic_signal(sample_rate_hz), sample_rate_hz, segment_s=SEGMENT_S
-    )
+    spectrum = welch_spectrum(_analytic_signal(sample_rate_hz), sample_rate_hz, segment_s=SEGMENT_S)
     tolerance = spectrum.resolution_hz
     assert median_frequency(spectrum) == pytest.approx(EXPECTED_HZ, abs=tolerance)
     assert mean_frequency(spectrum) == pytest.approx(EXPECTED_HZ, abs=tolerance)
@@ -85,9 +81,7 @@ def test_median_frequency_is_interpolated_between_bins() -> None:
 
 def test_spectral_moments_follow_their_definitions(sample_rate_hz: float) -> None:
     """The zeroth moment is total power and the first over the zeroth is mean frequency."""
-    spectrum = welch_spectrum(
-        _analytic_signal(sample_rate_hz), sample_rate_hz, segment_s=SEGMENT_S
-    )
+    spectrum = welch_spectrum(_analytic_signal(sample_rate_hz), sample_rate_hz, segment_s=SEGMENT_S)
     moment_0 = spectral_moment(spectrum, 0)
     moment_1 = spectral_moment(spectrum, 1)
     assert moment_1 / moment_0 == pytest.approx(mean_frequency(spectrum), rel=1e-12)
@@ -122,9 +116,7 @@ def test_frequency_features_do_not_scale_and_power_scales_quadratically(
 
 def test_band_restriction_keeps_only_the_requested_bins(sample_rate_hz: float) -> None:
     """Restricting the band drops out of band power and records the restriction."""
-    spectrum = welch_spectrum(
-        _analytic_signal(sample_rate_hz), sample_rate_hz, segment_s=SEGMENT_S
-    )
+    spectrum = welch_spectrum(_analytic_signal(sample_rate_hz), sample_rate_hz, segment_s=SEGMENT_S)
     restricted = spectrum.band(100.0, 200.0)
     assert float(restricted.frequencies_hz.min()) >= 100.0
     assert float(restricted.frequencies_hz.max()) <= 200.0
@@ -135,9 +127,7 @@ def test_band_restriction_keeps_only_the_requested_bins(sample_rate_hz: float) -
 
 def test_frequency_feature_set_reports_its_method(sample_rate_hz: float) -> None:
     """The feature set carries the estimation method and resolution with the numbers."""
-    spectrum = welch_spectrum(
-        _analytic_signal(sample_rate_hz), sample_rate_hz, segment_s=SEGMENT_S
-    )
+    spectrum = welch_spectrum(_analytic_signal(sample_rate_hz), sample_rate_hz, segment_s=SEGMENT_S)
     features = frequency_domain_features(spectrum)
     assert "Welch" in features.method
     assert features.resolution_hz == spectrum.resolution_hz

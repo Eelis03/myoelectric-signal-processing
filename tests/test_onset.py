@@ -97,8 +97,7 @@ def test_detector_finds_a_clean_onset_within_tolerance(
         assert result.onset_indices, f"{detector.name} found no onset in a clean contraction"
         matched = [i for i in result.onset_indices if abs(i - truth) <= tolerance_samples]
         assert matched, (
-            f"{detector.name} placed its onsets at {result.onset_indices} "
-            f"but the truth is {truth}"
+            f"{detector.name} placed its onsets at {result.onset_indices} but the truth is {truth}"
         )
 
 

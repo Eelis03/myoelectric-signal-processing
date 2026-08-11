@@ -151,9 +151,9 @@ def run_fatigue_protocol(spec: FatigueSpec) -> FatigueTrace:
         samples = trace.signal
         if spec.preprocess is not None:
             samples = apply_filter(spec.preprocess, samples, spec.preprocess_mode)
-        spectrum = welch_spectrum(
-            samples, spec.sample_rate_hz, segment_s=spec.segment_s
-        ).band(*spec.band_hz)
+        spectrum = welch_spectrum(samples, spec.sample_rate_hz, segment_s=spec.segment_s).band(
+            *spec.band_hz
+        )
         method = spectrum.method
         starts.append(epoch * spec.epoch_s)
         medians.append(median_frequency(spectrum))

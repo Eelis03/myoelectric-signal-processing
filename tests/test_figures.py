@@ -212,9 +212,7 @@ def test_the_onset_figure_marks_every_detector_where_it_fired(record: SignalTrac
     results = tuple(detector.detect(conditioned, SAMPLE_RATE_HZ) for detector in detectors)
     truth = record.onset_indices[0]
 
-    figure = onset_marks_figure(
-        record.times_s, conditioned, truth, results, zoom_s=(0.7, 1.0)
-    )
+    figure = onset_marks_figure(record.times_s, conditioned, truth, results, zoom_s=(0.7, 1.0))
     assert len(figure.axes) == 2
     zoom = figure.axes[1]
     assert zoom.get_xlim() == pytest.approx((0.7, 1.0))
@@ -243,9 +241,7 @@ def test_the_onset_figure_labels_each_mark_with_its_signed_error(record: SignalT
     assert result.first_onset_index is not None
     expected_ms = 1e3 * (result.first_onset_index - truth) / SAMPLE_RATE_HZ
 
-    figure = onset_marks_figure(
-        record.times_s, conditioned, truth, (result,), zoom_s=(0.7, 1.0)
-    )
+    figure = onset_marks_figure(record.times_s, conditioned, truth, (result,), zoom_s=(0.7, 1.0))
     labels = [text.get_text() for text in figure.axes[1].get_legend().get_texts()]
     assert any("ground truth" in label for label in labels)
     marked = [label for label in labels if label.startswith(detector.name)]

@@ -109,12 +109,11 @@ def test_power_line_interference_appears_at_the_requested_frequencies(
     Each amplitude is checked against the specification, and the decay between
     successive harmonics is checked against the ratio the specification states.
     """
-    spec = PowerlineSpec(fundamental_hz=50.0, n_harmonics=3, amplitude_ratio=0.3,
-                         harmonic_decay=0.5)
+    spec = PowerlineSpec(
+        fundamental_hz=50.0, n_harmonics=3, amplitude_ratio=0.3, harmonic_decay=0.5
+    )
     trace = generate(_spec(sample_rate_hz, powerline=spec), np.random.default_rng(5))
-    amplitudes = [
-        component_amplitude(trace.powerline, 50.0 * k, sample_rate_hz) for k in (1, 2, 3)
-    ]
+    amplitudes = [component_amplitude(trace.powerline, 50.0 * k, sample_rate_hz) for k in (1, 2, 3)]
     expected = [trace.active_rms * 0.3 * 0.5**k for k in range(3)]
     assert amplitudes == pytest.approx(expected, rel=1e-6)
 

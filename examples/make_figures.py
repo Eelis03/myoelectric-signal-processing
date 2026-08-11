@@ -134,9 +134,7 @@ def _onsets(outdir: Path, quick: bool) -> Path:
     for result in results:
         first = result.first_onset_index
         error = (
-            "not detected"
-            if first is None
-            else f"{1e3 * (first - truth) / SAMPLE_RATE_HZ:+.0f} ms"
+            "not detected" if first is None else f"{1e3 * (first - truth) / SAMPLE_RATE_HZ:+.0f} ms"
         )
         print(f"  {result.detector:24s} {error}")
     return save(

@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Myoelectric Signal Processing"
+abstract: >-
+  Filtering, onset detection, and a time and frequency domain feature library
+  for surface electromyography, where every stage states the delay it spends
+  so a chain from amplifier to prosthesis controller can be costed against the
+  100 to 125 ms a user tolerates.
+type: software
+authors:
+  - family-names: Yilmaz
+    given-names: Emre
+repository-code: "https://github.com/Eelis03/myoelectric-signal-processing"
+license: MIT
+version: "0.1.0"
+date-released: "2026-08-11"
+keywords:
+  - emg
+  - signal-processing
+  - feature-extraction
+  - biosignal
+  - python

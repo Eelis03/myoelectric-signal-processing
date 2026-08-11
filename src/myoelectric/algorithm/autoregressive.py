@@ -61,8 +61,7 @@ def autocorrelation(x: NDArray[np.float64], max_lag: int) -> NDArray[np.float64]
         raise ValueError("max_lag must not be negative")
     if samples.size <= max_lag:
         raise ValueError(
-            f"need more than {max_lag} samples to estimate lags up to {max_lag}, "
-            f"got {samples.size}"
+            f"need more than {max_lag} samples to estimate lags up to {max_lag}, got {samples.size}"
         )
     n = samples.size
     lags = np.empty(max_lag + 1, dtype=np.float64)
