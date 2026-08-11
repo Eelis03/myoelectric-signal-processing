@@ -30,7 +30,9 @@ PhysioNet examples of electromyograms
 When substituting real data, three things change and must be checked. The sample rate is
 usually 1000 Hz or 2000 Hz rather than the 2000 Hz assumed here, so every filter must be
 redesigned at the recording rate rather than reused. The mains frequency is 50 Hz or
-60 Hz depending on where the recording was made. Ground truth onsets in a labelled
+60 Hz depending on where the recording was made, and
+:func:`myoelectric.analysis.powerline_check.check_powerline` reads it off a channel of
+the recording when the dataset does not state it. Ground truth onsets in a labelled
 dataset mark the instant a subject was cued or the instant an experimenter annotated,
 neither of which is the instant the first motor unit discharged, so a timing bias
 measured against them is not comparable with the bias reported here.

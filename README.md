@@ -471,6 +471,7 @@ calls `algorithm` and constructs `model` values, `algorithm` consumes `model` va
 | `analysis/detector_metrics.py` | Detection rate, false positive rate, and the timing bias distribution |
 | `analysis/fatigue_stats.py` | Linear trend of a spectral feature with its t statistic and probability |
 | `analysis/delay_budget.py` | Per stage delay accounting, summed and enforced against a limit |
+| `analysis/powerline_check.py` | Which mains frequency a record carries, or that it carries none |
 | `analysis/reporting.py` | Markdown tables for every trace |
 | `analysis/figures.py` | Figures, built through the matplotlib object interface with no global state |
 | `examples/` | Thin wiring scripts, no logic |
@@ -558,9 +559,12 @@ that remain open and the one that has been closed.
 The route to a real evaluation is deliberately short. Everything downstream of `EmgRecording`
 in `src/myoelectric/pipeline/loaders.py` takes an array and a sample rate, and
 `NpzRecordingLoader` and `CsvRecordingLoader` cover the two formats a dataset export normally
-takes. Three public datasets are suitable and none is redistributed here: Ninapro (Atzori et
-al., 2014), putEMG (Kaczmarek et al., 2019), and the PhysioNet examples of electromyograms
-(Goldberger et al., 2000).
+takes. Three things change with real data and the loader module lists them; the mains frequency
+is the one a dataset does not always declare, so `check_powerline` in
+`src/myoelectric/analysis/powerline_check.py` measures it from the record and reports that
+there is no line rather than naming one anyway. Three public datasets are suitable and none is
+redistributed here: Ninapro (Atzori et al., 2014), putEMG (Kaczmarek et al., 2019), and the
+PhysioNet examples of electromyograms (Goldberger et al., 2000).
 
 ## References
 

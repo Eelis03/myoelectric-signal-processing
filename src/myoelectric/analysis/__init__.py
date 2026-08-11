@@ -27,6 +27,12 @@ from myoelectric.analysis.fatigue_stats import (
     analyse_fatigue,
     format_fatigue_summary,
 )
+from myoelectric.analysis.powerline_check import (
+    PowerlineCandidate,
+    PowerlineCheck,
+    check_powerline,
+    format_powerline_table,
+)
 from myoelectric.analysis.reporting import (
     format_filter_response_table,
     format_frequency_feature_table,
@@ -40,8 +46,11 @@ __all__ = [
     "DelayStage",
     "DetectorMetrics",
     "FatigueTrend",
+    "PowerlineCandidate",
+    "PowerlineCheck",
     "analyse_fatigue",
     "assemble_budget",
+    "check_powerline",
     "detector_stage",
     "enforce",
     "envelope_stage",
@@ -53,6 +62,7 @@ __all__ = [
     "format_frequency_feature_table",
     "format_latency_table",
     "format_metrics_table",
+    "format_powerline_table",
     "format_time_feature_table",
     "summarise_sweep",
 ]
