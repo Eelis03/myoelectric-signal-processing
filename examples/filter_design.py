@@ -78,8 +78,7 @@ def main() -> None:
     predicted = float(bandpass.group_delay_samples(np.array([100.0]), mode="causal")[0])
     print(f"predicted group delay at 100 Hz  {predicted:.2f} samples")
     print(
-        f"measured shift, causal           "
-        f"{_envelope_peak_index(causal) - reference:.2f} samples"
+        f"measured shift, causal           {_envelope_peak_index(causal) - reference:.2f} samples"
     )
     print(
         f"measured shift, zero phase       "

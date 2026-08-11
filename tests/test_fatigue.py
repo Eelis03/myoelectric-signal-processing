@@ -102,6 +102,7 @@ def test_no_fatigue_gives_no_trend() -> None:
     fixed level is a knife edge: one control run in a hundred is significant at the one
     per cent level by construction, and which run that is depends on the platform.
     """
+
     def slope_magnitude(scale: float, seed: int) -> float:
         trace = run_fatigue_protocol(_spec(duration_scale_end=scale, seed=seed))
         return abs(analyse_fatigue(trace)[0].slope_hz_per_s)

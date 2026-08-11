@@ -78,9 +78,7 @@ def test_moving_average_measured_latency_matches_its_nominal_delay(window_s: flo
     measurement = measure_latency(estimator, signal, SAMPLE_RATE_HZ, step_index, plateau)
 
     one_sample_ms = 1e3 / SAMPLE_RATE_HZ
-    assert measurement.latency_ms == pytest.approx(
-        measurement.nominal_delay_ms, abs=one_sample_ms
-    )
+    assert measurement.latency_ms == pytest.approx(measurement.nominal_delay_ms, abs=one_sample_ms)
 
 
 def test_moving_rms_reaches_half_amplitude_in_a_quarter_of_its_window() -> None:
@@ -98,9 +96,7 @@ def test_moving_rms_reaches_half_amplitude_in_a_quarter_of_its_window() -> None:
     measurement = measure_latency(estimator, signal, SAMPLE_RATE_HZ, step_index, plateau)
 
     one_sample_ms = 1e3 / SAMPLE_RATE_HZ
-    assert measurement.latency_ms == pytest.approx(
-        0.25 * 1e3 * window_s, abs=2.0 * one_sample_ms
-    )
+    assert measurement.latency_ms == pytest.approx(0.25 * 1e3 * window_s, abs=2.0 * one_sample_ms)
 
 
 def test_exponential_reaches_half_amplitude_at_log_two_of_its_time_constant() -> None:

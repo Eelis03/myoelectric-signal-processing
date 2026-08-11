@@ -83,9 +83,9 @@ def test_csv_loader_without_a_header_generates_names(tmp_path: Path) -> None:
     """An export with no header still loads."""
     path = tmp_path / "headerless.csv"
     path.write_text("1.0;2.0\n3.0;4.0\n", encoding="utf-8")
-    recording = CsvRecordingLoader(
-        sample_rate_hz=1000.0, delimiter=";", has_header=False
-    ).load(path)
+    recording = CsvRecordingLoader(sample_rate_hz=1000.0, delimiter=";", has_header=False).load(
+        path
+    )
     assert recording.channel_names == ("ch0", "ch1")
     assert recording.n_samples == 2
 

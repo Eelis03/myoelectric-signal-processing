@@ -3,7 +3,7 @@
 Filtering, onset detection, and a time and frequency domain feature library for myoelectric signals.
 
 [![CI](https://github.com/Eelis03/myoelectric-signal-processing/actions/workflows/ci.yml/badge.svg)](https://github.com/Eelis03/myoelectric-signal-processing/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ![Median frequency falling from 95.8 Hz to 69.9 Hz over a 60 second sustained contraction, with the fitted least squares trend line, while the amplitude of the same signal does not fall with it](docs/figures/fatigue-median-frequency.png)
@@ -22,7 +22,9 @@ that cannot say what it spends of that cannot be assembled into a chain.
 
 ## Installation
 
-Requires Python 3.12 or later.
+Requires Python 3.12 or later. Continuous integration runs the whole suite on 3.12 and 3.13, on
+Linux and on Windows, so the version floor in `pyproject.toml` is a tested claim rather than a
+declared one.
 
 ```bash
 git clone https://github.com/Eelis03/myoelectric-signal-processing.git
@@ -57,7 +59,10 @@ with all three, and the cascade is applied causally because a controller has no 
 ```python
 import numpy as np
 from myoelectric.algorithm.filters import (
-    apply_causal, cascade, design_bandpass, design_powerline_notch,
+    apply_causal,
+    cascade,
+    design_bandpass,
+    design_powerline_notch,
 )
 
 chain = cascade(
@@ -82,7 +87,7 @@ Three detectors implement one protocol, so swapping between them changes nothing
 ```python
 from myoelectric.algorithm.onset import BonatoDetector, EnvelopeThresholdDetector, HodgesBuiDetector
 
-detector = HodgesBuiDetector()          # or EnvelopeThresholdDetector(), BonatoDetector()
+detector = HodgesBuiDetector()  # or EnvelopeThresholdDetector(), BonatoDetector()
 result = detector.detect(conditioned, sample_rate_hz)
 print(result.first_onset_index, result.onset_indices, result.threshold)
 print(detector.decision_delay_s(sample_rate_hz))
@@ -119,8 +124,8 @@ import numpy as np
 from myoelectric.algorithm.features_freq import frequency_domain_features, welch_spectrum
 from myoelectric.algorithm.features_time import time_domain_features
 
-rest = conditioned[:700]                       # a leading resting segment
-window = conditioned[2000:2500]                # 0.25 s of contraction
+rest = conditioned[:700]  # a leading resting segment
+window = conditioned[2000:2500]  # 0.25 s of contraction
 
 time_domain = time_domain_features(
     window,
@@ -144,10 +149,13 @@ each threshold is scaled by the factor its own units require.
 
 ```python
 from myoelectric.algorithm.envelope import (
-    ExponentialEnvelope, LowPassEnvelope, MovingAverageEnvelope, MovingRmsEnvelope,
+    ExponentialEnvelope,
+    LowPassEnvelope,
+    MovingAverageEnvelope,
+    MovingRmsEnvelope,
 )
 
-estimator = ExponentialEnvelope(0.050)         # cheapest to run on an embedded controller
+estimator = ExponentialEnvelope(0.050)  # cheapest to run on an embedded controller
 amplitude = estimator.estimate(conditioned, sample_rate_hz)
 print(estimator.nominal_delay_samples(sample_rate_hz))
 ```
@@ -163,14 +171,22 @@ Each stage above reports what it spends. This adds them up and refuses a chain t
 
 ```python
 from myoelectric.analysis.delay_budget import (
-    assemble_budget, detector_stage, enforce, envelope_stage, filter_stage,
+    assemble_budget,
+    detector_stage,
+    enforce,
+    envelope_stage,
+    filter_stage,
 )
 
-budget = enforce(assemble_budget((
-    filter_stage(chain, (20.0, 450.0)),                 # raises on a zero phase design
-    detector_stage(detector, sample_rate_hz),
-    envelope_stage(estimator, sample_rate_hz),
-)))
+budget = enforce(
+    assemble_budget(
+        (
+            filter_stage(chain, (20.0, 450.0)),  # raises on a zero phase design
+            detector_stage(detector, sample_rate_hz),
+            envelope_stage(estimator, sample_rate_hz),
+        )
+    )
+)
 print(budget.total_ms, budget.headroom_ms, budget.dominant_stage.name)
 ```
 
@@ -469,6 +485,7 @@ the alternatives that were considered and rejected, are in
 uv sync --all-extras --dev
 uv run pytest -q
 uv run ruff check .
+uv run ruff format --check .
 uv run mypy
 ```
 

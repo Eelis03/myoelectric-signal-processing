@@ -59,9 +59,7 @@ class FatigueTrend:
         return self.slope_hz_per_s < 0.0 and self.one_sided_p_value < 0.01
 
 
-def _trend(
-    times_s: NDArray[np.float64], values: NDArray[np.float64], feature: str
-) -> FatigueTrend:
+def _trend(times_s: NDArray[np.float64], values: NDArray[np.float64], feature: str) -> FatigueTrend:
     if times_s.size != values.size:
         raise ValueError("times and values must have the same length")
     if times_s.size < 3:

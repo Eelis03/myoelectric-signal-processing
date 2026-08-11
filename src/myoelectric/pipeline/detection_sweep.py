@@ -120,9 +120,7 @@ class DetectorSweepTrace:
         return tuple(outcome for outcome in self.outcomes if outcome.detector == name)
 
 
-def _make_spec(
-    spec: SweepSpec, snr_db: float, profile: ContractionProfile
-) -> GenerationSpec:
+def _make_spec(spec: SweepSpec, snr_db: float, profile: ContractionProfile) -> GenerationSpec:
     return GenerationSpec(
         sampling=spec.sampling,
         profile=profile,
@@ -133,9 +131,7 @@ def _make_spec(
     )
 
 
-def run_detector_sweep(
-    detectors: tuple[OnsetDetector, ...], spec: SweepSpec
-) -> DetectorSweepTrace:
+def run_detector_sweep(detectors: tuple[OnsetDetector, ...], spec: SweepSpec) -> DetectorSweepTrace:
     """Run every detector over every trial at every signal to noise ratio."""
     if not detectors:
         raise ValueError("at least one detector is required")

@@ -131,9 +131,7 @@ class FilterDesign:
         In ``zero_phase`` mode the magnitude is squared, because the signal passes
         through the same design twice.
         """
-        _, response = sp_signal.sosfreqz(
-            self.sos, worN=frequencies_hz, fs=self.sample_rate_hz
-        )
+        _, response = sp_signal.sosfreqz(self.sos, worN=frequencies_hz, fs=self.sample_rate_hz)
         magnitude = np.abs(np.asarray(response, dtype=np.complex128))
         if mode == "zero_phase":
             magnitude = magnitude**2
@@ -202,9 +200,7 @@ def design_bandpass(
     )
 
 
-def design_highpass(
-    sample_rate_hz: float, cutoff_hz: float = 20.0, order: int = 4
-) -> FilterDesign:
+def design_highpass(sample_rate_hz: float, cutoff_hz: float = 20.0, order: int = 4) -> FilterDesign:
     """Butterworth high pass for movement artefact removal."""
     _validate_corner("cutoff_hz", cutoff_hz, sample_rate_hz)
     sos = sp_signal.butter(order, cutoff_hz, btype="highpass", output="sos", fs=sample_rate_hz)
@@ -219,9 +215,7 @@ def design_highpass(
     )
 
 
-def design_lowpass(
-    sample_rate_hz: float, cutoff_hz: float, order: int = 2
-) -> FilterDesign:
+def design_lowpass(sample_rate_hz: float, cutoff_hz: float, order: int = 2) -> FilterDesign:
     """Butterworth low pass, used to smooth a rectified signal into an envelope."""
     _validate_corner("cutoff_hz", cutoff_hz, sample_rate_hz)
     sos = sp_signal.butter(order, cutoff_hz, btype="lowpass", output="sos", fs=sample_rate_hz)

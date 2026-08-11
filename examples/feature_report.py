@@ -58,8 +58,7 @@ def main() -> None:
 
     heading("Window")
     print(
-        f"length                     {window.size} samples "
-        f"({window.size / SAMPLE_RATE_HZ:.3f} s)"
+        f"length                     {window.size} samples ({window.size / SAMPLE_RATE_HZ:.3f} s)"
     )
     print(f"resting standard deviation {float(np.std(rest)):.4f}")
     print(f"amplitude threshold        {threshold:.4f} (three resting standard deviations)")
